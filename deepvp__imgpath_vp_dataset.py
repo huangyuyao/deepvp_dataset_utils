@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from tqdm import tqdm
 
 class DeepVPLabelParser:
     SUBSETS = ("AL2MI australia boston BZ2CL CZ2ET indonesia japan LA2NY la_city " +
@@ -8,9 +9,9 @@ class DeepVPLabelParser:
 
     def __init__(self, root):
         self.rootstr = root
-        self.rootpath = Path(root)
+        self.rootpath = Path(root).resolve()
         self.dataitems = []
-        for subset in self.SUBSETS:
+        for subset in tqdm(self.SUBSETS):
             subsetpath = self.rootpath / subset
             if not subsetpath.exists():
                 self.FileNotExistsWarning(subsetpath)
@@ -25,9 +26,12 @@ class DeepVPLabelParser:
                 self.FileNotExistsWarning(imgroot)
                 continue
             with open(str(labeltxt), 'r') as labelfile:
-                for labelline in labelfile.readlines():
+                labellines = labelfile.readlines()
+                _dataitems = []
+                for labelline in tqdm(labellines):
                     tokens = labelline.split(',')
-                    imgfilename = tokens[-1][38:-1]
+                    _s = tokens[-1]
+                    imgfilename = _s[_s.rfind('/')+1:-1]
                     tokens2 = imgfilename.split('_')
                     vpgt = int(tokens2[3]), int(tokens2[4])
                     imgpath = imgroot / imgfilename
@@ -35,9 +39,11 @@ class DeepVPLabelParser:
                         self.FileNotExistsWarning(imgpath)
                         continue
                     dataitem = (str(imgpath), vpgt)
-                    self.dataitems.append(dataitem)
+                    _dataitems.append(dataitem)
+                self.dataitems += _dataitems
     def FileNotExistsWarning(self, filepath):
         print("FileNotExists: %s \n Warning: skipping file or directory recursively because of not existing files!" % str(filepath))
+        __import__('pdb').set_trace()
     def __getitem__(self, idx):
         return self.dataitems[idx]
     def __len__(self):
@@ -45,6 +51,9 @@ class DeepVPLabelParser:
 
 
 if __name__ == "__main__":
+    import dill
     parser = DeepVPLabelParser(sys.argv[1] if len(sys.argv) > 1 else '.')
+    with open('deepvp.index', 'wb') as f:
+        dill.dump(parser, f, dill.HIGHEST_PROTOCOL)
     print(len(parser))
     print(parser[0])
